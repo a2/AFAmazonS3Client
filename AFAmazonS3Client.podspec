@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "AFAmazonS3Client"
-  s.version      = "0.3.0"
+  s.version      = "0.4.0"
   s.summary      = "AFNetworking Client for the Amazon S3 API."
   s.homepage     = "https://github.com/AFNetworking/AFAmazonS3Client"
   s.license      = 'MIT'
@@ -11,5 +11,5 @@ Pod::Spec.new do |s|
   s.source_files = 'AFAmazonS3Client'
   s.requires_arc = true
 
-  s.dependency 'AFNetworking', '~> 1.3'
+  s.dependency 'AFNetworking', '~> 2.0.2'
 end

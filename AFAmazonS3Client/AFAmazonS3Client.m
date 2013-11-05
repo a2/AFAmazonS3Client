@@ -24,7 +24,7 @@
 #import <CommonCrypto/CommonHMAC.h>
 
 #import "AFAmazonS3Client.h"
-#import "AFXMLRequestOperation.h"
+#import <AFNetworking/AFHTTPRequestOperation.h>
 
 static NSString * const AFAmazonS3ClientDefaultBaseURLString = @"http://s3.amazonaws.com";
 
@@ -137,22 +137,24 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
 	
     self.accessKey = accessKey;
     self.secret = secret;
-	
+    
     return self;
 }
 
-- (id)initWithBaseURL:(NSURL *)url {
+- (id)initWithBaseURL:(NSURL *)url
+{
     self = [super initWithBaseURL:url];
     if (!self) {
         return nil;
     }
 	
-    [self registerHTTPOperationClass:[AFXMLRequestOperation class]];
+    self.responseSerializer = [AFXMLParserResponseSerializer serializer];
 	
     return self;
 }
 
-- (NSURL *)baseURL {
+- (NSURL *)baseURL
+{
     if (!_s3_baseURL) {
         return [NSURL URLWithString:AFAmazonS3BaseURLStringWithBucketInRegion(self.bucket, self.region)];
     }
@@ -160,7 +162,8 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
     return _s3_baseURL;
 }
 
-- (void)setBucket:(NSString *)bucket {
+- (void)setBucket:(NSString *)bucket
+{
     [self willChangeValueForKey:@"baseURL"];
     [self willChangeValueForKey:@"bucket"];
     _bucket = bucket;
@@ -168,7 +171,8 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
     [self didChangeValueForKey:@"baseURL"];
 }
 
-- (void)setRegion:(NSString *)region {
+- (void)setRegion:(NSString *)region
+{
     [self willChangeValueForKey:@"baseURL"];
     [self willChangeValueForKey:@"region"];
     _region = region;
@@ -241,7 +245,7 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
         }
     }];
 	
-    [self enqueueHTTPRequestOperation:requestOperation];
+    [requestOperation start];
 }
 
 
@@ -306,7 +310,7 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
 	
     [requestOperation setDownloadProgressBlock:progress];
 	
-    [self enqueueHTTPRequestOperation:requestOperation];
+    [requestOperation start];
 }
 
 - (void)getObjectWithPath:(NSString *)path
@@ -330,7 +334,7 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
     [requestOperation setDownloadProgressBlock:progress];
     [requestOperation setOutputStream:outputStream];
 	
-    [self enqueueHTTPRequestOperation:requestOperation];
+    [requestOperation start];
 }
 
 - (void)postObjectWithFile:(NSString *)path
@@ -376,14 +380,13 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
     NSData *data = [NSURLConnection sendSynchronousRequest:fileRequest returningResponse:&response error:&fileError];
 	
     if (data && response) {
-        NSMutableURLRequest *request = [self multipartFormRequestWithMethod:method path:destinationPath parameters:parameters constructingBodyWithBlock:^(id <AFMultipartFormData> formData) {
+        
+        AFHTTPRequestOperation *requestOperation = [self POST:destinationPath parameters:parameters constructingBodyWithBlock:^(id<AFMultipartFormData> formData) {
             if (![parameters valueForKey:@"key"]) {
                 [formData appendPartWithFormData:[[filePath lastPathComponent] dataUsingEncoding:NSUTF8StringEncoding] name:@"key"];
             }
             [formData appendPartWithFileData:data name:@"file" fileName:[filePath lastPathComponent] mimeType:[response MIMEType]];
-        }];
-		
-        AFHTTPRequestOperation *requestOperation = [self HTTPRequestOperationWithRequest:request success:^(AFHTTPRequestOperation *operation, id responseObject) {
+        } success:^(AFHTTPRequestOperation *operation, id responseObject) {
             if (success) {
                 success(responseObject);
             }
@@ -395,7 +398,7 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
 		
         [requestOperation setUploadProgressBlock:progress];
 		
-        [self enqueueHTTPRequestOperation:requestOperation];
+        [requestOperation start];
     }
 }
 
@@ -405,7 +408,7 @@ NSString * AFBase64EncodedStringFromData(NSData *data) {
                                       path:(NSString *)path
                                 parameters:(NSDictionary *)parameters
 {
-	NSMutableURLRequest *request = [super requestWithMethod:method path:path parameters:parameters];
+	NSMutableURLRequest *request = [self.requestSerializer requestWithMethod:method URLString:path parameters:parameters];
 
     [[self authorizationHeadersForRequest:request] enumerateKeysAndObjectsUsingBlock:^(id field, id value, BOOL *stop) {
         [request setValue:value forHTTPHeaderField:field];
